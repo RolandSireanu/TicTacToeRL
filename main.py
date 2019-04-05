@@ -35,19 +35,34 @@ def train_short_term_memory(currentState , action , newState , reward , finished
     global discountRate
     global learningRate
 
-    probabilitiesInCurrentState = networkModel.predict(currentState)[0];       #[[0.1 , 0.11 , 0.2 , ... , 0.05]]
-    probOfTookenAction = probabilitiesInCurrentState[action]                #0.2
+    if(finished == False):
 
-    probOfWiningInNextState = networkModel.predict(newState)[0];       #[[0.14 , 0.5 , .... , 0.15]]
-    maxProbOfWinningInNextState = np.max(probOfWiningInNextState);  #0.5
+        probabilitiesInCurrentState = networkModel.predict(currentState)[0];       #[[0.1 , 0.11 , 0.2 , ... , 0.05]]
+        probOfTookenAction = probabilitiesInCurrentState[action]                #0.2
 
-    newProbForTookenAction = probOfTookenAction + learningRate*(reward + discountRate*maxProbOfWinningInNextState);
+        probOfWiningInNextState = networkModel.predict(newState)[0];       #[[0.14 , 0.5 , .... , 0.15]]
+        maxProbOfWinningInNextState = np.max(probOfWiningInNextState);  #0.5
 
-    target = probabilitiesInCurrentState;
-    target[action] = newProbForTookenAction;
+        newProbForTookenAction = probOfTookenAction + learningRate*(reward + discountRate*maxProbOfWinningInNextState);
 
-    networkModel.fit(probabilitiesInCurrentState.reshape(1,9) , target.reshape(1,9) , epochs = 1 , verbose = 0);
+        target = copy.deepcopy(probabilitiesInCurrentState);
+        target[action] = newProbForTookenAction;
 
+        networkModel.fit(probabilitiesInCurrentState.reshape(1,9) , target.reshape(1,9) , epochs = 1 , verbose = 0);
+
+    else:
+        probabilitiesInCurrentState = networkModel.predict(currentState)[0];       #[[0.1 , 0.11 , 0.2 , ... , 0.05]]
+        probOfTookenAction = probabilitiesInCurrentState[action]                    #0.2
+        newProbForTookenAction = probOfTookenAction + learningRate*reward;
+
+        target = copy.deepcopy(probabilitiesInCurrentState);
+        target[action] = newProbForTookenAction;
+        networkModel.fit(probabilitiesInCurrentState.reshape(1,9) , target.reshape(1,9) , epochs = 1 , verbose = 0);
+
+def train_network_on_stored_data(networkModel):
+    global containerTransitions
+
+    
 
 
 def main():
@@ -81,21 +96,26 @@ def main():
         if(r != 0):
             tempNewState = game.getState();
             rememberData(backupCurrentState , move , np.reshape(tempNewState , (1,9)) , r);
-            train_short_term_memory(backupCurrentState , move , tempNewState , r , True , dnnModel);
+            train_short_term_memory(backupCurrentState , move , np.reshape(tempNewState , (1,19)) , r , True , dnnModel);
             break;
 
         #Ionel is doing the move because agent hasn't won yet 
         game.doAction(predictMove(game.getState()) , 2);
-
         newState = np.reshape(game.getState() , (1,9));
+        r = game.whoWins();
+        if(r != 0):
+            rememberData(backupCurrentState , move , newState , r)
+            train_short_term_memory(backupCurrentState , move , newState , r , True , dnnModel);
+            break;
+
 
         train_short_term_memory(backupCurrentState , move , newState , 0 , False , dnnModel);
 
 
         print(output);
-        print(move);
-        break;
+        print(move);        
 
+    
     # TBD : Train_network_on_stored_data
 
 if __name__ == "__main__":

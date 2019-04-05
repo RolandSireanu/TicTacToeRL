@@ -48,7 +48,7 @@ class Game :
 
 
     def isLocationMarked(self , loc):
-        return True if self.board[int(loc/3)][int(loc%3)] == 0 else False
+        return False if self.board[int(loc/3)][int(loc%3)] == 0 else True
 
 
 
