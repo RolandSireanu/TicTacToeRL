@@ -30,9 +30,9 @@ def predictMove(board):
             movePredicted = np.argmax(secondDiagonal) + i*3;
 
     if(movePredicted == -1):
-        movePredicted = random.randint(0,9);
+        movePredicted = random.randint(0,8);
         while board[int(movePredicted / 3)][int(movePredicted % 3)] != 0:
-            movePredicted = random.randint(0,9);
+            movePredicted = random.randint(0,8);
     
 
     return movePredicted;

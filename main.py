@@ -1,5 +1,6 @@
 import numpy as np 
 import copy
+import random
 from keras.optimizers import Adam
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
@@ -11,6 +12,8 @@ discountRate = 0.90
 containerTransitions = list()
 
 def rememberData(currentState , action , newState , reward):
+    global containerTransitions
+
     containerTransitions.append([currentState , action , newState , reward]);
 
 
@@ -62,59 +65,72 @@ def train_short_term_memory(currentState , action , newState , reward , finished
 def train_network_on_stored_data(networkModel):
     global containerTransitions
 
-    
+    if(len(containerTransitions) > 200):
+        batch = random.sample(containerTransitions , 200);
+    else:
+        batch = containerTransitions;
+
+    for oldState , act , state , r in batch:
+        train_short_term_memory(oldState , act , state , r , True if r !=0 else False , networkModel);
+
+
 
 
 def main():
 
+    nrOfGames = 500
     dnnModel = buildDNN();
     game = Game();
     #game.doAction(3,2);    
     #game.doAction(4,2);  
     print(game.whoWins());
 
-    while(game.whoWins() == 0):
 
-        #Get current state of the game 
-        currentState = np.reshape(game.getState() , (1,9));
-        backupCurrentState = copy.deepcopy(currentState)
+    for i in range(nrOfGames):
+        while(True):
 
-        #Predict next move based on current state 
-        output = dnnModel.predict(currentState);        #[0.12 , 0.14 ... , 0.22]
+            #Get current state of the game 
+            currentState = np.reshape(game.getState() , (1,9));
+            backupCurrentState = copy.deepcopy(currentState)
 
-        #Take the index of the maximum probability
-        move = np.argmax(output);                       #8
-        if(game.isLocationMarked(move)):
-            #Remember transition 
-            rememberData(backupCurrentState , move , backupCurrentState , -100);            
-            break;                    
+            #Predict next move based on current state 
+            output = dnnModel.predict(currentState);        #[0.12 , 0.14 ... , 0.22]
 
-        #Agent is doing the move on the board !
-        game.doAction(move , 1);        
-        #Check if agent won 
-        r = game.whoWins();
-        if(r != 0):
-            tempNewState = game.getState();
-            rememberData(backupCurrentState , move , np.reshape(tempNewState , (1,9)) , r);
-            train_short_term_memory(backupCurrentState , move , np.reshape(tempNewState , (1,19)) , r , True , dnnModel);
-            break;
+            #Take the index of the maximum probability
+            move = np.argmax(output);                       #8
+            if(game.isLocationMarked(move)):
+                #Remember transition 
+                rememberData(backupCurrentState , move , backupCurrentState , -100); 
+                train_short_term_memory(backupCurrentState,move,backupCurrentState,-100 , True , dnnModel);
+                break;                    
 
-        #Ionel is doing the move because agent hasn't won yet 
-        game.doAction(predictMove(game.getState()) , 2);
-        newState = np.reshape(game.getState() , (1,9));
-        r = game.whoWins();
-        if(r != 0):
-            rememberData(backupCurrentState , move , newState , r)
-            train_short_term_memory(backupCurrentState , move , newState , r , True , dnnModel);
-            break;
+            #Agent is doing the move on the board !
+            game.doAction(move , 1);        
+            #Check if agent won 
+            r = game.whoWins();
+            if(r != 0):
+                tempNewState = game.getState();
+                rememberData(backupCurrentState , move , np.reshape(tempNewState , (1,9)) , r);
+                train_short_term_memory(backupCurrentState , move , np.reshape(tempNewState , (1,19)) , r , True , dnnModel);
+                break;
+
+            #Ionel is doing the move because agent hasn't won yet 
+            game.doAction(predictMove(game.getState()) , 2);
+            newState = np.reshape(game.getState() , (1,9));
+            r = game.whoWins();
+            if(r != 0):
+                rememberData(backupCurrentState , move , newState , r)
+                train_short_term_memory(backupCurrentState , move , newState , r , True , dnnModel);
+                break;
 
 
-        train_short_term_memory(backupCurrentState , move , newState , 0 , False , dnnModel);
+            train_short_term_memory(backupCurrentState , move , newState , 0 , False , dnnModel);
+            rememberData(backupCurrentState , move , newState , 0);
 
+        game.resetGame();       
+        train_network_on_stored_data(dnnModel);
 
-        print(output);
-        print(move);        
-
+    
     
     # TBD : Train_network_on_stored_data
 

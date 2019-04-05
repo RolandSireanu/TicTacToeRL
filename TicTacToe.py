@@ -7,6 +7,9 @@ class Game :
         print("Game class build ! ");
         self.board = np.zeros((3,3));
 
+    def resetGame(self):
+        self.board = np.zeros((3,3));
+
     def getState(self):
         return self.board;
 
