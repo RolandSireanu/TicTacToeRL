@@ -78,7 +78,8 @@ def train_network_on_stored_data(networkModel):
 
 def main():
 
-    nrOfGames = 500
+    nrOfGames = 5000
+    luckyPercent = 90;
     dnnModel = buildDNN();
     game = Game();
     #game.doAction(3,2);    
@@ -87,18 +88,28 @@ def main():
 
 
     for i in range(nrOfGames):
+        counter = 0;
         while(True):
+            counter = counter + 1;
 
+            print("Game number: {}".format(i));
             #Get current state of the game 
             currentState = np.reshape(game.getState() , (1,9));
             backupCurrentState = copy.deepcopy(currentState)
 
-            #Predict next move based on current state 
-            output = dnnModel.predict(currentState);        #[0.12 , 0.14 ... , 0.22]
+            if(random.randint(1,100) < int(luckyPercent - (luckyPercent / nrOfGames))):
+                print("Lucky branch !");
+                move = random.randint(0,8);
+            else:
+                print("Knowledge branch !");
+                #Predict next move based on current state             
+                output = dnnModel.predict(currentState);        #[0.12 , 0.14 ... , 0.22]
 
-            #Take the index of the maximum probability
-            move = np.argmax(output);                       #8
+                #Take the index of the maximum probability
+                move = np.argmax(output);                       #8
+
             if(game.isLocationMarked(move)):
+                print("Location overwritten !")
                 #Remember transition 
                 rememberData(backupCurrentState , move , backupCurrentState , -100); 
                 train_short_term_memory(backupCurrentState,move,backupCurrentState,-100 , True , dnnModel);
@@ -111,7 +122,7 @@ def main():
             if(r != 0):
                 tempNewState = game.getState();
                 rememberData(backupCurrentState , move , np.reshape(tempNewState , (1,9)) , r);
-                train_short_term_memory(backupCurrentState , move , np.reshape(tempNewState , (1,19)) , r , True , dnnModel);
+                train_short_term_memory(backupCurrentState , move , np.reshape(tempNewState , (1,9)) , r , True , dnnModel);
                 break;
 
             #Ionel is doing the move because agent hasn't won yet 
@@ -127,12 +138,35 @@ def main():
             train_short_term_memory(backupCurrentState , move , newState , 0 , False , dnnModel);
             rememberData(backupCurrentState , move , newState , 0);
 
+            if(counter > 50):
+                counter = 0;
+
         game.resetGame();       
         train_network_on_stored_data(dnnModel);
 
     
-    
+    dnnModel.save_weights("model.h5")
     # TBD : Train_network_on_stored_data
+
+    testStates = [
+        [1 , 0 , 2 , 0 , 1 , 0 , 2 , 0 , 0],
+        [1 , 0 , 2 , 0 , 0 , 0 , 2 , 0 , 1],
+        [1 , 1 , 0 , 2 , 2 , 0 , 0 , 0 , 0],
+        [1 , 0 , 1 , 2 , 2 , 0 , 0 , 0 , 0],
+        [1 , 0 , 2 , 1 , 2 , 0 , 0 , 0 , 0]
+        ]
+    expectedMove = [8,4,2,1,6]
+
+
+
+    for i in range(len(testStates)):
+        cs = np.reshape(testStates , (1,9));
+        if(np.argmax(dnnModel.predict(testStates)[0]) == expectedMove[i]):
+            print("Success !");
+        else:
+            print("Fail !");
+
+
 
 if __name__ == "__main__":
     main()
